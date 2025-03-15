@@ -1,0 +1,794 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Advanced Webcam Object Detection</title>
+  <style>
+    :root {
+      --primary-color: #4285f4;
+      --secondary-color: #34a853;
+      --accent-color: #ea4335;
+      --text-color: #202124;
+      --background-color: #f8f9fa;
+      --card-color: #ffffff;
+    }
+    
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      max-width: 1000px;
+      margin: 0 auto;
+      padding: 20px;
+      background-color: var(--background-color);
+      color: var(--text-color);
+    }
+    
+    .container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    
+    .header {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+    
+    .main-content {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 20px;
+      width: 100%;
+    }
+    
+    .video-section {
+      flex: 1;
+      min-width: 300px;
+    }
+    
+    .results-section {
+      flex: 1;
+      min-width: 300px;
+      max-width: 400px;
+    }
+    
+    .card {
+      background-color: var(--card-color);
+      border-radius: 8px;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+      padding: 20px;
+      margin-bottom: 20px;
+    }
+    
+    #video-container {
+      position: relative;
+      width: 100%;
+      max-width: 640px;
+      height: 480px;
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+    }
+    
+    #video {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+    
+    #canvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+    }
+    
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 10px;
+      margin: 15px 0;
+    }
+    
+    button {
+      padding: 10px 20px;
+      background-color: var(--primary-color);
+      color: white;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      font-weight: 500;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    
+    button:hover:not(:disabled) {
+      background-color: #3367d6;
+      transform: translateY(-2px);
+    }
+    
+    button:active:not(:disabled) {
+      transform: translateY(0);
+    }
+    
+    button:disabled {
+      background-color: #cccccc;
+      cursor: not-allowed;
+    }
+    
+    button i {
+      font-size: 1.2em;
+    }
+    
+    #status {
+      margin: 15px 0;
+      padding: 10px 15px;
+      background-color: #e3f2fd;
+      border-radius: 5px;
+      text-align: center;
+      font-weight: 500;
+      border-left: 4px solid var(--primary-color);
+    }
+    
+    #results {
+      padding: 10px;
+    }
+    
+    #result-list {
+      max-height: 300px;
+      overflow-y: auto;
+      list-style-type: none;
+      padding: 0;
+    }
+    
+    .result-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px;
+      margin-bottom: 8px;
+      border-radius: 5px;
+      background-color: #f1f3f4;
+      transition: all 0.2s ease;
+    }
+    
+    .result-item:hover {
+      background-color: #e8eaed;
+    }
+    
+    .result-label {
+      font-weight: 500;
+      text-transform: capitalize;
+    }
+    
+    .confidence-bar {
+      height: 10px;
+      width: 100%;
+      background-color: #e0e0e0;
+      border-radius: 5px;
+      overflow: hidden;
+      margin-top: 5px;
+    }
+    
+    .confidence-level {
+      height: 100%;
+      background-color: var(--secondary-color);
+    }
+    
+    .model-selector {
+      margin: 15px 0;
+      padding: 10px;
+      background-color: white;
+      border-radius: 5px;
+      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+    }
+    
+    .settings-section {
+      margin-top: 10px;
+    }
+    
+    .settings-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 10px;
+      margin-top: 10px;
+    }
+    
+    .setting-item {
+      display: flex;
+      flex-direction: column;
+    }
+    
+    .setting-label {
+      margin-bottom: 5px;
+      font-weight: 500;
+    }
+    
+    select, input {
+      padding: 8px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+    }
+    
+    .counter {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 10px;
+      font-weight: 500;
+    }
+    
+    .counter-value {
+      font-size: 1.5em;
+      color: var(--primary-color);
+    }
+    
+    .snapshot-gallery {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 10px;
+    }
+    
+    .snapshot {
+      width: 100px;
+      height: 100px;
+      object-fit: cover;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: transform 0.2s;
+    }
+    
+    .snapshot:hover {
+      transform: scale(1.05);
+    }
+    
+    @media (max-width: 768px) {
+      .main-content {
+        flex-direction: column;
+      }
+      
+      #video-container {
+        height: auto;
+        aspect-ratio: 4/3;
+      }
+    }
+    
+    /* Loading spinner */
+    .loader {
+      border: 4px solid rgba(255, 255, 255, 0.3);
+      border-radius: 50%;
+      border-top: 4px solid var(--primary-color);
+      width: 20px;
+      height: 20px;
+      animation: spin 1s linear infinite;
+      display: inline-block;
+      vertical-align: middle;
+      margin-right: 10px;
+    }
+    
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+  </style>
+  <!-- Include Google Material Icons -->
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>Advanced Webcam Object Detection</h1>
+      <p>Detect objects in real-time using TensorFlow.js and state-of-the-art models</p>
+    </div>
+    
+    <div id="status"><span class="loader"></span>Loading model...</div>
+    
+    <div class="main-content">
+      <div class="video-section">
+        <div class="card">
+          <div id="video-container">
+            <video id="video" autoplay playsinline></video>
+            <canvas id="canvas"></canvas>
+          </div>
+          
+          <div class="controls">
+            <button id="startBtn" disabled><i class="material-icons">videocam</i> Start Camera</button>
+            <button id="detectBtn" disabled><i class="material-icons">visibility</i> Start Detection</button>
+            <button id="snapshotBtn" disabled><i class="material-icons">photo_camera</i> Take Snapshot</button>
+            <button id="stopBtn" disabled><i class="material-icons">stop</i> Stop</button>
+          </div>
+          
+          <div class="model-selector">
+            <h3>Model Settings</h3>
+            <div class="settings-grid">
+              <div class="setting-item">
+                <label class="setting-label" for="modelSelect">Detection Model:</label>
+                <select id="modelSelect">
+                  <option value="coco-ssd">COCO-SSD (Default)</option>
+                  <option value="mobilenet">MobileNet V2</option>
+                  <option value="efficientdet">EfficientDet</option>
+                </select>
+              </div>
+              
+              <div class="setting-item">
+                <label class="setting-label" for="confidenceThreshold">Min Confidence:</label>
+                <input type="range" id="confidenceThreshold" min="0" max="1" step="0.05" value="0.6">
+                <span id="confidenceValue">0.6 (60%)</span>
+              </div>
+              
+              <div class="setting-item">
+                <label class="setting-label" for="maxDetections">Max Detections:</label>
+                <input type="range" id="maxDetections" min="1" max="20" step="1" value="5">
+                <span id="maxDetectionsValue">5</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <div class="card snapshot-container" style="display: none;">
+          <h3>Snapshots</h3>
+          <div class="snapshot-gallery" id="snapshotGallery"></div>
+        </div>
+      </div>
+      
+      <div class="results-section">
+        <div class="card">
+          <h3>Detection Results</h3>
+          <div id="results">
+            <p>No objects detected yet</p>
+          </div>
+          
+          <div class="counter">
+            <span>Objects detected:</span>
+            <span id="objectCount" class="counter-value">0</span>
+          </div>
+        </div>
+        
+        <div class="card">
+          <h3>Statistics</h3>
+          <div id="stats">
+            <div class="stat-item">
+              <span>Detection FPS:</span>
+              <span id="fps">0</span>
+            </div>
+            <div class="stat-item">
+              <span>Most common object:</span>
+              <span id="commonObject">None</span>
+            </div>
+            <div class="stat-item">
+              <span>Detection time:</span>
+              <span id="detectionTime">0 ms</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Load TensorFlow.js -->
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.20.0"></script>
+  <!-- Load COCO-SSD model -->
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.2"></script>
+  <!-- Load MobileNet model -->
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/mobilenet@2.1.0"></script>
+  <!-- Load EfficientDet model (using TFJS converter) -->
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-converter"></script>
+  
+  <script>
+    // Elements
+    const video = document.getElementById('video');
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    const statusDiv = document.getElementById('status');
+    const startBtn = document.getElementById('startBtn');
+    const detectBtn = document.getElementById('detectBtn');
+    const stopBtn = document.getElementById('stopBtn');
+    const snapshotBtn = document.getElementById('snapshotBtn');
+    const resultsDiv = document.getElementById('results');
+    const modelSelect = document.getElementById('modelSelect');
+    const confidenceThreshold = document.getElementById('confidenceThreshold');
+    const confidenceValue = document.getElementById('confidenceValue');
+    const maxDetections = document.getElementById('maxDetections');
+    const maxDetectionsValue = document.getElementById('maxDetectionsValue');
+    const objectCount = document.getElementById('objectCount');
+    const fpsElement = document.getElementById('fps');
+    const commonObjectElement = document.getElementById('commonObject');
+    const detectionTimeElement = document.getElementById('detectionTime');
+    const snapshotGallery = document.getElementById('snapshotGallery');
+    const snapshotContainer = document.querySelector('.snapshot-container');
+    
+    // State
+    let models = {
+      'coco-ssd': null,
+      'mobilenet': null,
+      'efficientdet': null
+    };
+    let currentModel = 'coco-ssd';
+    let stream;
+    let isDetecting = false;
+    let animationId;
+    let lastFrameTime = 0;
+    let frameCount = 0;
+    let lastFpsUpdate = 0;
+    let detectionHistory = [];
+    let snapshotsCount = 0;
+    
+    // Initialize
+    async function init() {
+      try {
+        statusDiv.innerHTML = '<span class="loader"></span>Loading COCO-SSD model...';
+        
+        // Load default model
+        models['coco-ssd'] = await cocoSsd.load();
+        
+        statusDiv.textContent = "Model loaded successfully! Click 'Start Camera' to begin.";
+        startBtn.disabled = false;
+      } catch (error) {
+        statusDiv.textContent = "Error loading model: " + error.message;
+        console.error(error);
+      }
+    }
+    
+    // Load a specific model
+    async function loadModel(modelName) {
+      if (models[modelName]) {
+        return models[modelName]; // Already loaded
+      }
+      
+      statusDiv.innerHTML = `<span class="loader"></span>Loading ${modelName} model...`;
+      
+      try {
+        let model;
+        
+        switch (modelName) {
+          case 'coco-ssd':
+            model = await cocoSsd.load();
+            break;
+          case 'mobilenet':
+            model = await mobilenet.load();
+            break;
+          case 'efficientdet':
+            // This is a simplified example - in reality, you would need to load a specific
+            // EfficientDet model that has been converted to TFJS format
+            model = await cocoSsd.load({ base: 'lite_mobilenet_v2' });
+            break;
+        }
+        
+        models[modelName] = model;
+        statusDiv.textContent = `${modelName} model loaded successfully!`;
+        return model;
+      } catch (error) {
+        statusDiv.textContent = `Error loading ${modelName} model: ${error.message}`;
+        console.error(error);
+        throw error;
+      }
+    }
+    
+    // Setup camera
+    async function setupCamera() {
+      try {
+        statusDiv.innerHTML = '<span class="loader"></span>Accessing camera...';
+        
+        // Get camera stream
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: { 
+            facingMode: 'environment',
+            width: { ideal: 640 },
+            height: { ideal: 480 }
+          },
+          audio: false
+        });
+        
+        // Set video source
+        video.srcObject = stream;
+        
+        // Wait for video to be ready
+        await new Promise(resolve => {
+          video.onloadedmetadata = () => {
+            resolve();
+          };
+        });
+        
+        // Set canvas dimensions
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        
+        statusDiv.textContent = "Camera ready! Click 'Start Detection' to detect objects.";
+        startBtn.disabled = true;
+        detectBtn.disabled = false;
+        stopBtn.disabled = false;
+        snapshotBtn.disabled = false;
+      } catch (error) {
+        statusDiv.textContent = "Camera error: " + error.message;
+        startBtn.disabled = false;
+        console.error(error);
+      }
+    }
+    
+    // Start object detection
+    async function startDetection() {
+      if (isDetecting) return;
+      
+      try {
+        // Make sure the selected model is loaded
+        currentModel = modelSelect.value;
+        if (!models[currentModel]) {
+          await loadModel(currentModel);
+        }
+        
+        isDetecting = true;
+        detectBtn.disabled = true;
+        statusDiv.innerHTML = '<span class="loader"></span>Detecting objects...';
+        
+        // Reset stats
+        lastFrameTime = performance.now();
+        frameCount = 0;
+        lastFpsUpdate = performance.now();
+        detectionHistory = [];
+        
+        // Start detection loop
+        detectFrame();
+        
+      } catch (error) {
+        statusDiv.textContent = "Error starting detection: " + error.message;
+        detectBtn.disabled = false;
+      }
+    }
+    
+    // Detect objects in current frame
+    async function detectFrame() {
+      if (!isDetecting) return;
+      
+      const startTime = performance.now();
+      
+      try {
+        // Get predictions based on model type
+        let predictions;
+        const threshold = parseFloat(confidenceThreshold.value);
+        const maxDetectionsValue = parseInt(maxDetections.value);
+        
+        if (currentModel === 'mobilenet') {
+          // MobileNet classifies the entire image rather than detecting objects
+          const classification = await models[currentModel].classify(video);
+          
+          // Transform to similar format as COCO-SSD
+          predictions = classification
+            .filter(c => c.probability >= threshold)
+            .slice(0, maxDetectionsValue)
+            .map(c => ({
+              class: c.className.split(',')[0],
+              score: c.probability,
+              bbox: [0, 0, canvas.width, canvas.height] // Full image
+            }));
+        } else {
+          // COCO-SSD and EfficientDet
+          const rawPredictions = await models[currentModel].detect(video);
+          predictions = rawPredictions
+            .filter(p => p.score >= threshold)
+            .slice(0, maxDetectionsValue);
+        }
+        
+        // Calculate FPS
+        frameCount++;
+        const now = performance.now();
+        const elapsed = now - lastFpsUpdate;
+        if (elapsed >= 1000) { // Update every second
+          const fps = Math.round((frameCount * 1000) / elapsed);
+          fpsElement.textContent = fps;
+          frameCount = 0;
+          lastFpsUpdate = now;
+        }
+        
+        // Clear canvas
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        
+        // Draw results
+        drawPredictions(predictions);
+        
+        // Display results
+        displayResults(predictions);
+        
+        // Update detection history for statistics
+        detectionHistory = [...detectionHistory, ...predictions.map(p => p.class)].slice(-100);
+        updateStatistics();
+        
+        // Calculate detection time
+        const detectionTime = performance.now() - startTime;
+        detectionTimeElement.textContent = `${Math.round(detectionTime)} ms`;
+        
+        // Continue loop
+        animationId = requestAnimationFrame(detectFrame);
+      } catch (error) {
+        console.error("Detection error:", error);
+        statusDiv.textContent = "Detection error: " + error.message;
+        stopEverything();
+      }
+    }
+    
+    // Draw bounding boxes
+    function drawPredictions(predictions) {
+      predictions.forEach(prediction => {
+        // Get values
+        const [x, y, width, height] = prediction.bbox;
+        const text = `${prediction.class} (${Math.round(prediction.score * 100)}%)`;
+        
+        // Draw box with color based on confidence
+        const confidence = prediction.score;
+        const hue = Math.min(confidence * 120, 120); // 0 to 120 (red to green)
+        ctx.strokeStyle = `hsl(${hue}, 100%, 40%)`;
+        ctx.lineWidth = 4;
+        ctx.strokeRect(x, y, width, height);
+        
+        // Draw label background
+        ctx.fillStyle = `hsla(${hue}, 100%, 40%, 0.8)`;
+        const textWidth = ctx.measureText(text).width;
+        ctx.fillRect(x, y - 30, textWidth + 10, 30);
+        
+        // Draw text
+        ctx.fillStyle = '#FFFFFF';
+        ctx.font = 'bold 16px Arial';
+        ctx.fillText(text, x + 5, y - 10);
+      });
+    }
+    
+    // Display results in HTML
+    function displayResults(predictions) {
+      objectCount.textContent = predictions.length;
+      
+      if (predictions.length === 0) {
+        resultsDiv.innerHTML = "<p>No objects detected</p>";
+        return;
+      }
+      
+      let html = "<ul id='result-list'>";
+      
+      predictions.forEach(prediction => {
+        const confidencePercent = (prediction.score * 100).toFixed(1);
+        
+        html += `
+          <li class="result-item">
+            <div>
+              <div class="result-label">${prediction.class}</div>
+              <div class="confidence-bar">
+                <div class="confidence-level" style="width: ${confidencePercent}%"></div>
+              </div>
+            </div>
+            <div>${confidencePercent}%</div>
+          </li>
+        `;
+      });
+      
+      html += "</ul>";
+      resultsDiv.innerHTML = html;
+    }
+    
+    // Update statistics based on detection history
+    function updateStatistics() {
+      if (detectionHistory.length === 0) {
+        commonObjectElement.textContent = "None";
+        return;
+      }
+      
+      // Find most common object
+      const counts = {};
+      detectionHistory.forEach(item => {
+        counts[item] = (counts[item] || 0) + 1;
+      });
+      
+      const mostCommon = Object.entries(counts)
+        .sort((a, b) => b[1] - a[1])[0];
+      
+      commonObjectElement.textContent = mostCommon ? 
+        `${mostCommon[0]} (${Math.round(mostCommon[1] / detectionHistory.length * 100)}%)` : 
+        "None";
+    }
+    
+    // Take snapshot
+    function takeSnapshot() {
+      if (!stream) return;
+      
+      // Show snapshot container if it's hidden
+      snapshotContainer.style.display = 'block';
+      
+      // Create a new canvas for the snapshot
+      const snapshotCanvas = document.createElement('canvas');
+      snapshotCanvas.width = video.videoWidth;
+      snapshotCanvas.height = video.videoHeight;
+      const snapshotCtx = snapshotCanvas.getContext('2d');
+      
+      // Draw the current video frame
+      snapshotCtx.drawImage(video, 0, 0, snapshotCanvas.width, snapshotCanvas.height);
+      
+      // Get the predictions drawn on the main canvas and overlay them
+      snapshotCtx.drawImage(canvas, 0, 0, snapshotCanvas.width, snapshotCanvas.height);
+      
+      // Convert to image
+      const dataUrl = snapshotCanvas.toDataURL('image/png');
+      
+      // Create image element
+      const img = document.createElement('img');
+      img.src = dataUrl;
+      img.className = 'snapshot';
+      img.title = `Snapshot ${++snapshotsCount}`;
+      
+      // Add click to view full size
+      img.onclick = function() {
+        const win = window.open();
+        win.document.write(`<img src="${dataUrl}" style="max-width: 100%;">`);
+      };
+      
+      // Add to gallery
+      snapshotGallery.appendChild(img);
+      
+      // Show notification
+      statusDiv.textContent = "Snapshot taken!";
+      setTimeout(() => {
+        if (isDetecting) {
+          statusDiv.textContent = "Detecting objects...";
+        } else {
+          statusDiv.textContent = "Camera ready. Click 'Start Detection' to detect objects.";
+        }
+      }, 2000);
+    }
+    
+    // Stop everything
+    function stopEverything() {
+      isDetecting = false;
+      
+      // Cancel animation frame
+      if (animationId) {
+        cancelAnimationFrame(animationId);
+        animationId = null;
+      }
+      
+      // Stop camera
+      if (stream) {
+        stream.getTracks().forEach(track => track.stop());
+        stream = null;
+      }
+      
+      // Clear displays
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      resultsDiv.innerHTML = "<p>No objects detected</p>";
+      video.srcObject = null;
+      
+      // Reset buttons
+      startBtn.disabled = false;
+      detectBtn.disabled = true;
+      stopBtn.disabled = true;
+      snapshotBtn.disabled = true;
+      
+      // Reset stats
+      objectCount.textContent = "0";
+      fpsElement.textContent = "0";
+      detectionTimeElement.textContent = "0 ms";
+      commonObjectElement.textContent = "None";
+      
+      statusDiv.textContent = "Stopped. Click 'Start Camera' to begin again.";
+    }
+    
+    // Event listeners
+    startBtn.addEventListener('click', setupCamera);
+    detectBtn.addEventListener('click', startDetection);
+    stopBtn.addEventListener('click', stopEverything);
+    snapshotBtn.addEventListener('click', takeSnapshot);
+    
+    // Update UI when sliders change
+    confidenceThreshold.addEventListener('input', function() {
+      const value = parseFloat(this.value);
+      confidenceValue.textContent = `${value.toFixed(2)} (${Math.round(value * 100)}%)`;
+    });
+    
+    maxDetections.addEventListener('input', function() {
+      maxDetectionsValue.textContent = this.value;
+    });
+    
+    // Initialize on load
+    init();
+    
+  </script>
+</body>
+</html>
